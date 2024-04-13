@@ -41,11 +41,12 @@ def get_company_list(bearer_token):
 
 @app.route('/parse', methods=['GET'])
 def start_parse():
-    if not request.json or 'bearer_token' not in request.json:
-        return jsonify({'error': 'Bearer token is required in the JSON body'}), 400
-    bearer_token = request.json['bearer_token']
-    company_list = get_company_list(bearer_token)
+    token = request.args.get('bearer_token') 
+    if not token:
+        return jsonify({"error": "Missing 'bearer_token' parameter"}), 400
+    company_list = get_company_list(token)
     return jsonify(company_list)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
