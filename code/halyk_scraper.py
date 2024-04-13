@@ -10,7 +10,7 @@ def process_and_store_category_data(category_code, data):
         category_name = company.get('category_name')
         description = None
         bonus = None
-        for tag in company.get('tags', []):
+        for tag in company.get('tags'):
             bonus = tag.get('text')
             description = tag.get('description')
             
