@@ -1,56 +1,51 @@
-from flask import Flask, jsonify
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-import re
+from flask import Flask, request, jsonify
+from api.halyk_category import make_api_call
+
 app = Flask(__name__)
 
-@app.route('/scrape', methods=['GET'])
-def scrape_data():
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service)
-    element_list = []
-
-    
-
-    try:
-        page_url = "https://halykbank.kz/halykclub#!/1501/list?category_code=supermarketi&filter"  
-        driver.get(page_url)
-
-        block_elements = driver.find_elements(By.CSS_SELECTOR, 'div.block')
-        element_list = []
-
-        for block in block_elements:
-            content = {}
-
+def process_and_store_category_data(category_code, data):
+    company_list = []
+    for company in data:
+        name = company.get('name')
+        category_name = company.get('category_name')
+        description = None
+        bonus = None
+        for tag in company.get('tags', []):
+            bonus = tag.get('text')
+            description = tag.get('description')
             
-            company_name = block.find_element(By.CSS_SELECTOR, 'span').text.strip()
-            if company_name:
-                content["company_name"] = company_name
+        company_data = {
+            'name': name,
+            'category_name': category_name,
+            'description': description,
+            'bonus': bonus
+        }
 
-            
-            all_text = block.text
-            
-            cashback_matches = re.findall(r'(\d+)%', all_text)
-            if cashback_matches:
-                
-                content["cashback"] = float(cashback_matches[0])
+        company_list.append(company_data)
+    return company_list
 
-            
-            if 'QR' in all_text:
-                content["description"] = all_text.split('\n')[-1]  
+def get_company_list(bearer_token):
+    company_list = []
+    api_path = "/halykclub-api/v1/dictionary/categories"
+    result = make_api_call(bearer_token, api_path)
 
-            element_list.append(content)
-        print(element_list)
-    finally:
-        driver.quit()
+    if result:
+        code_and_id_list = [item['code'] for item in result]
 
-    return jsonify(element_list), 200, {'Content-Type': 'application/json'} 
+        for category in code_and_id_list:
+            data_path = f"/halykclub-api/v1/terminal/devices?category_code={category}&filter="
+            data = make_api_call(bearer_token, data_path)
+            company_by_category = process_and_store_category_data(category, data)
+            company_list.extend(company_by_category)
+    return company_list
 
+@app.route('/parse', methods=['POST'])
+def start_parse():
+    if not request.json or 'bearer_token' not in request.json:
+        return jsonify({'error': 'Bearer token is required in the JSON body'}), 400
+    bearer_token = request.json['bearer_token']
+    company_list = get_company_list(bearer_token)
+    return jsonify(company_list)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
-
-
-
