@@ -39,7 +39,7 @@ def get_company_list(bearer_token):
             company_list.extend(company_by_category)
     return company_list
 
-@app.route('/parse', methods=['POST'])
+@app.route('/parse', methods=['GET'])
 def start_parse():
     if not request.json or 'bearer_token' not in request.json:
         return jsonify({'error': 'Bearer token is required in the JSON body'}), 400
