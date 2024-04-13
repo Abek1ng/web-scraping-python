@@ -1,37 +1,46 @@
-from flask import Flask, jsonify
+import pytest
+from flask_testing import TestCase
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-app = Flask(__name__)
+from app import app  # Make sure to import your Flask app
 
-@app.route('/scrape', methods=['GET'])
-def scrape_data():
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service)
-    element_list = []
+class TestWebScraper(TestCase):
+    def create_app(self):
+        # Configure the Flask app for testing
+        app.config['TESTING'] = True
+        return app
 
-    try:
-        for page in range(1, 3):  # You can parameterize the page range if needed
-            page_url = f"https://webscraper.io/test-sites/e-commerce/static/computers/laptops?page={page}"
-            driver.get(page_url)
-            titles = driver.find_elements(By.CLASS_NAME, "title")
-            prices = driver.find_elements(By.CLASS_NAME, "price")
-            descriptions = driver.find_elements(By.CLASS_NAME, "description")
-            ratings = driver.find_elements(By.CLASS_NAME, "ratings")
+    def setUp(self):
+        """Set up test variables and initialize the app."""
+        self.service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=self.service)
+        
+    def tearDown(self):
+        """Tear down any data added from a test."""
+        self.driver.quit()
 
-            for i in range(len(titles)):
-                element_list.append({
-                    "title": titles[i].text, 
-                    "price": prices[i].text, 
-                    "description": descriptions[i].text, 
-                    "rating": ratings[i].text
-                })
-    finally:
-        driver.quit()
+    def test_scrape_endpoint(self):
+        """Test the /scrape endpoint of the web scraper."""
+        # This uses the test client provided by Flask-Testing
+        response = self.client.get('/scrape')
+        
+        # Check if the response is successful
+        self.assert200(response, "The /scrape endpoint did not return HTTP 200")
+        
+        # Ensure data is returned
+        self.assertTrue(len(response.json) > 0, "No data was returned from the /scrape endpoint")
 
-    return jsonify(element_list)
+        # Optional: Additional tests to validate the structure of returned data
+        sample_data = response.json[0]
+        self.assertIsInstance(sample_data, dict)
+        self.assertIn('title', sample_data)
+        self.assertIn('price', sample_data)
+        self.assertIn('description', sample_data)
+        self.assertIn('rating', sample_data)
 
+# Run the tests if this file is called from the command line
 if __name__ == '__main__':
-    app.run(debug=True)
+    pytest.main()
