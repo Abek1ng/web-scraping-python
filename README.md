@@ -12,5 +12,5 @@ parameters: bearer_token
 }
 
 host/parse_forte{
-paraemters: url
+paraemters: url #in our case "https://club.forte.kz/partneroffers"
 }
